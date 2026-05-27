@@ -1,0 +1,56 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+}
+
+model Template {
+  id        String     @id @default(cuid())
+  nome      String
+  assunto   String
+  html      String     @db.Text
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  campanhas Campanha[]
+}
+
+model Campanha {
+  id         String   @id @default(cuid())
+  nome       String
+  templateId String
+  template   Template @relation(fields: [templateId], references: [id])
+  filtros    Json
+  totalAlvo  Int      @default(0)
+  status     String   @default("rascunho")
+  createdAt  DateTime @default(now())
+  envios     Envio[]
+
+  @@index([status])
+}
+
+model Envio {
+  id         String    @id @default(cuid())
+  campanhaId String
+  campanha   Campanha  @relation(fields: [campanhaId], references: [id])
+  sigla      String
+  email      String
+  status     String    @default("pendente")
+  enviadoEm  DateTime?
+  abertoEm   DateTime?
+  erro       String?
+
+  @@index([campanhaId, status])
+  @@index([sigla])
+}
