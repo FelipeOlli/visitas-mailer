@@ -26,13 +26,14 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
   })
 
   const envios = await prisma.$transaction(
-    schools.map(s =>
-      prisma.envio.upsert({
-        where: { id: `${campanha.id}-${s.sigla}` },
-        create: { id: `${campanha.id}-${s.sigla}`, campanhaId: campanha.id, sigla: s.sigla, email: s.email!, status: 'pendente' },
+    schools.map(s => {
+      const safeId = `${campanha.id}-${s.sigla.replace(/[^a-zA-Z0-9]/g, '_')}`
+      return prisma.envio.upsert({
+        where: { id: safeId },
+        create: { id: safeId, campanhaId: campanha.id, sigla: s.sigla, email: s.email!, status: 'pendente' },
         update: {},
       })
-    )
+    })
   )
 
   // Chama o webhook do n8n
