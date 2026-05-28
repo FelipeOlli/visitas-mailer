@@ -48,6 +48,26 @@ export function CampanhaDetail({ campanha, envios, counts }: Props) {
   const [disparando, setDisparando] = useState(false)
   const [filterStatus, setFilterStatus] = useState('todos')
   const [msg, setMsg] = useState('')
+  const [emailTeste, setEmailTeste] = useState('')
+  const [enviandoTeste, setEnviandoTeste] = useState(false)
+  const [msgTeste, setMsgTeste] = useState('')
+
+  async function handleTestar() {
+    setEnviandoTeste(true)
+    setMsgTeste('')
+    const res = await fetch(`/api/campanhas/${campanha.id}/testar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: emailTeste }),
+    })
+    setEnviandoTeste(false)
+    if (!res.ok) {
+      const d = await res.json()
+      setMsgTeste('Erro: ' + (d.error ?? 'desconhecido'))
+    } else {
+      setMsgTeste(`Teste enviado para ${emailTeste}`)
+    }
+  }
 
   const pctAbertura = campanha.totalAlvo > 0 ? Math.round((counts.abriu / campanha.totalAlvo) * 100) : 0
   const canDispatch = campanha.status === 'rascunho' || campanha.status === 'pausada'
@@ -106,6 +126,33 @@ export function CampanhaDetail({ campanha, envios, counts }: Props) {
         )}
       </div>
       {msg && <p className="text-xs text-[#ccf381] bg-[#ccf381]/10 rounded-xl px-4 py-3">{msg}</p>}
+
+      {/* Envio de teste */}
+      <div className="rounded-[20px] bg-[#0a0a0a] border border-[#262626] p-5 space-y-3">
+        <p className="text-xs text-[#525252] uppercase tracking-widest">Envio de teste</p>
+        <div className="flex gap-2">
+          <input
+            type="email"
+            placeholder="seu@email.com"
+            value={emailTeste}
+            onChange={e => setEmailTeste(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && emailTeste && !enviandoTeste && handleTestar()}
+            className="flex-1 bg-[#121212] border border-[#262626] rounded-xl px-4 py-2 text-sm text-[#fafafa] placeholder:text-[#404040] focus:outline-none focus:border-[#404040]"
+          />
+          <button
+            onClick={handleTestar}
+            disabled={!emailTeste || enviandoTeste}
+            className="bg-[#1a1a1a] hover:bg-[#262626] border border-[#262626] text-[#fafafa] font-medium rounded-xl px-4 py-2 text-sm transition-colors disabled:opacity-40 shrink-0"
+          >
+            {enviandoTeste ? 'Enviando...' : 'Enviar teste'}
+          </button>
+        </div>
+        {msgTeste && (
+          <p className={`text-xs ${msgTeste.startsWith('Erro') ? 'text-red-400' : 'text-[#ccf381]'}`}>
+            {msgTeste}
+          </p>
+        )}
+      </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
