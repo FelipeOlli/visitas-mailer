@@ -34,12 +34,20 @@ export function CampanhaForm({ templates }: Props) {
 
   useEffect(() => {
     fetch('/api/escolas-filtradas')
-      .then(r => r.json())
+      .then(async r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        const ct = r.headers.get('content-type') ?? ''
+        if (!ct.includes('application/json')) throw new Error('Resposta não-JSON (possível redirect de login)')
+        return r.json()
+      })
       .then(d => {
-        setCresAll(d.cresAll)
+        setCresAll(d.cresAll ?? [])
         setCresCounts(d.cresCounts ?? {})
-        setBairrosAll(d.bairrosAll)
-        setTotalAlvo(d.total)
+        setBairrosAll(d.bairrosAll ?? [])
+        setTotalAlvo(d.total ?? 0)
+      })
+      .catch(err => {
+        setError(`Falha ao carregar filtros: ${err.message}. Recarregue a página ou faça login novamente.`)
       })
   }, [])
 
