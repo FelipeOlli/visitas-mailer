@@ -31,6 +31,7 @@ export default async function CampanhaDetailPage({ params }: { params: { id: str
         templateNome: campanha.template.nome,
         filtros: campanha.filtros as Record<string, string[]>,
         createdAt: campanha.createdAt.toISOString(),
+        intervaloSegundos: campanha.intervaloSegundos,
       }}
       envios={envios.map(e => ({
         id: e.id,

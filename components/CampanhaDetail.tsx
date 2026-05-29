@@ -18,6 +18,7 @@ interface CampanhaProps {
   status: string
   totalAlvo: number
   templateNome: string
+  intervaloSegundos: number
   filtros: Record<string, string[]>
   createdAt: string
 }
@@ -203,7 +204,7 @@ export function CampanhaDetail({ campanha, envios, counts }: Props) {
             <p className="text-xs text-[#737373]">
               {processados}/{campanha.totalAlvo}
               {campanha.status === 'enviando' && restantes > 0 && (
-                <span className="text-[#404040]"> • ETA {formatEta(restantes * 18)}</span>
+                <span className="text-[#404040]"> • ETA {formatEta(restantes * campanha.intervaloSegundos)}</span>
               )}
             </p>
           </div>

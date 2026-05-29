@@ -1,0 +1,1 @@
+ALTER TABLE "Campanha" ADD COLUMN "intervaloSegundos" INTEGER NOT NULL DEFAULT 20;

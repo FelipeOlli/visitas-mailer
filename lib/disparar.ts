@@ -48,6 +48,7 @@ export async function dispararCampanha(campanhaId: string): Promise<{ disparados
       return acc
     }, {} as Record<string, { nome: string; cre: string; bairro: string }>),
     pixelBase: process.env.NEXTAUTH_URL + '/api/pixel',
+    intervaloSegundos: campanha.intervaloSegundos,
   }
 
   const n8nRes = await fetch(webhookUrl, {

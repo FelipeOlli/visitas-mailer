@@ -3,6 +3,14 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 
+function formatDuration(sec: number): string {
+  const h = Math.floor(sec / 3600)
+  const m = Math.round((sec % 3600) / 60)
+  if (h > 0) return `~${h}h ${m}min`
+  if (m > 0) return `~${m}min`
+  return `~${sec}s`
+}
+
 interface Template { id: string; nome: string }
 
 interface Props { templates: Template[] }
@@ -16,6 +24,7 @@ export function CampanhaForm({ templates }: Props) {
   const [cresAll, setCresAll] = useState<string[]>([])
   const [cresCounts, setCresCounts] = useState<Record<string, number>>({})
   const [bairrosAll, setBairrosAll] = useState<string[]>([])
+  const [intervaloSegundos, setIntervaloSegundos] = useState(20)
   const [selectedCres, setSelectedCres] = useState<string[]>([])
   const [selectedBairros, setSelectedBairros] = useState<string[]>([])
   const [selectedStatus, setSelectedStatus] = useState<string[]>([])
@@ -82,6 +91,7 @@ export function CampanhaForm({ templates }: Props) {
           statusVisita: selectedStatus,
         },
         totalAlvo: totalAlvo ?? 0,
+        intervaloSegundos,
       }),
     })
     setLoading(false)
@@ -113,6 +123,28 @@ export function CampanhaForm({ templates }: Props) {
               <option key={t.id} value={t.id}>{t.nome}</option>
             ))}
           </select>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-[#737373] uppercase tracking-widest">Intervalo entre envios</p>
+              <span className="text-xs font-mono text-[#ccf381]">{intervaloSegundos}s</span>
+            </div>
+            <input
+              type="range"
+              min={10} max={120} step={5}
+              value={intervaloSegundos}
+              onChange={e => setIntervaloSegundos(Number(e.target.value))}
+              className="w-full accent-[#ccf381]"
+            />
+            <div className="flex justify-between text-xs text-[#404040]">
+              <span>10s — mais rápido (~360/h)</span>
+              <span>120s — mais seguro (~30/h)</span>
+            </div>
+            <p className="text-xs text-[#525252]">
+              Estimativa: ~{Math.round(3600 / intervaloSegundos)} e-mails/hora
+              {totalAlvo ? ` · ${formatDuration(totalAlvo * intervaloSegundos)} para ${totalAlvo} escolas` : ''}
+            </p>
+          </div>
         </div>
 
         {/* Filtro CRE */}
