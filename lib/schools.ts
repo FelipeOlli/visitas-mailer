@@ -35,6 +35,15 @@ export function getCres(): string[] {
   return Array.from(new Set(schools.map(s => s.cre).filter(Boolean))).sort()
 }
 
+export function getCresCounts(): Record<string, number> {
+  const counts: Record<string, number> = {}
+  for (const s of schools) {
+    if (!s.email || !s.cre) continue
+    counts[s.cre] = (counts[s.cre] ?? 0) + 1
+  }
+  return counts
+}
+
 export function getBairros(): string[] {
   return Array.from(new Set(schools.map(s => s.bairro).filter(Boolean))).sort()
 }

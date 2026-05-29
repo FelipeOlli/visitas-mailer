@@ -14,6 +14,7 @@ export function CampanhaForm({ templates }: Props) {
   const [nome, setNome] = useState('')
   const [templateId, setTemplateId] = useState(templates[0]?.id ?? '')
   const [cresAll, setCresAll] = useState<string[]>([])
+  const [cresCounts, setCresCounts] = useState<Record<string, number>>({})
   const [bairrosAll, setBairrosAll] = useState<string[]>([])
   const [selectedCres, setSelectedCres] = useState<string[]>([])
   const [selectedBairros, setSelectedBairros] = useState<string[]>([])
@@ -27,6 +28,7 @@ export function CampanhaForm({ templates }: Props) {
       .then(r => r.json())
       .then(d => {
         setCresAll(d.cresAll)
+        setCresCounts(d.cresCounts ?? {})
         setBairrosAll(d.bairrosAll)
         setTotalAlvo(d.total)
       })
@@ -130,6 +132,11 @@ export function CampanhaForm({ templates }: Props) {
                 }`}
               >
                 {cre}
+                {cresCounts[cre] != null && (
+                  <span className={`ml-1.5 ${selectedCres.includes(cre) ? 'text-black/60' : 'text-[#404040]'}`}>
+                    {cresCounts[cre]}
+                  </span>
+                )}
               </button>
             ))}
           </div>

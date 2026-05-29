@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { filterSchools, getCres, getBairros } from '@/lib/schools'
+import { filterSchools, getCres, getBairros, getCresCounts } from '@/lib/schools'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
@@ -13,6 +13,7 @@ export async function GET(req: NextRequest) {
     total: filtered.length,
     schools: filtered,
     cresAll: getCres(),
+    cresCounts: getCresCounts(),
     bairrosAll: getBairros(),
   })
 }
