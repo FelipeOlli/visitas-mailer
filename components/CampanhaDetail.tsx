@@ -1,7 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+
+function formatEta(seg: number): string {
+  if (seg <= 0) return 'concluindo...'
+  const h = Math.floor(seg / 3600)
+  const m = Math.round((seg % 3600) / 60)
+  if (h > 0) return `~${h}h ${m}min`
+  if (m > 0) return `~${m}min`
+  return `~${seg}s`
+}
 
 interface CampanhaProps {
   id: string
@@ -69,6 +78,15 @@ export function CampanhaDetail({ campanha, envios, counts }: Props) {
     }
   }
 
+  useEffect(() => {
+    if (campanha.status !== 'enviando') return
+    const id = setInterval(() => router.refresh(), 10000)
+    return () => clearInterval(id)
+  }, [campanha.status, router])
+
+  const processados = counts.enviado + counts.abriu + counts.falhou
+  const pct = campanha.totalAlvo > 0 ? (processados / campanha.totalAlvo) * 100 : 0
+  const restantes = campanha.totalAlvo - processados
   const pctAbertura = campanha.totalAlvo > 0 ? Math.round((counts.abriu / campanha.totalAlvo) * 100) : 0
   const canDispatch = campanha.status === 'rascunho' || campanha.status === 'pausada'
   const canReiniciar =
@@ -166,6 +184,36 @@ export function CampanhaDetail({ campanha, envios, counts }: Props) {
           {counts.falhou > 3 && (
             <p className="text-xs text-red-400/50">… e mais {counts.falhou - 3}. Use o filtro &quot;Falhou&quot; para ver todos.</p>
           )}
+        </div>
+      )}
+
+      {/* Barra de progresso */}
+      {(campanha.status === 'enviando' || (processados > 0 && processados < campanha.totalAlvo)) && (
+        <div className="rounded-[20px] bg-[#0a0a0a] border border-[#262626] p-5 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              {campanha.status === 'enviando' && (
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#ccf381] opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#ccf381]" />
+                </span>
+              )}
+              <p className="text-xs text-[#525252] uppercase tracking-widest">Progresso</p>
+            </div>
+            <p className="text-xs text-[#737373]">
+              {processados}/{campanha.totalAlvo}
+              {campanha.status === 'enviando' && restantes > 0 && (
+                <span className="text-[#404040]"> • ETA {formatEta(restantes * 18)}</span>
+              )}
+            </p>
+          </div>
+          <div className="h-2 bg-[#1a1a1a] rounded-full overflow-hidden">
+            <div
+              className="h-full bg-[#ccf381] rounded-full transition-all duration-500"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <p className="text-xs text-[#404040]">{Math.round(pct)}% concluído</p>
         </div>
       )}
 
