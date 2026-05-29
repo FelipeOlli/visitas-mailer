@@ -71,6 +71,9 @@ export function CampanhaDetail({ campanha, envios, counts }: Props) {
 
   const pctAbertura = campanha.totalAlvo > 0 ? Math.round((counts.abriu / campanha.totalAlvo) * 100) : 0
   const canDispatch = campanha.status === 'rascunho' || campanha.status === 'pausada'
+  const canReiniciar =
+    (campanha.status === 'enviando' || campanha.status === 'concluida') &&
+    (counts.pendente > 0 || counts.falhou > 0)
 
   async function handleDisparar() {
     if (!confirm(`Disparar para ${campanha.totalAlvo} escolas?`)) return
@@ -84,6 +87,23 @@ export function CampanhaDetail({ campanha, envios, counts }: Props) {
     } else {
       const d = await res.json()
       setMsg(`Disparo iniciado — ${d.disparados} envios criados. O n8n processará em background.`)
+      router.refresh()
+    }
+  }
+
+  async function handleReiniciar() {
+    const qtd = counts.pendente + counts.falhou
+    if (!confirm(`Recriar e reenviar ${qtd} envio(s) pendente(s)/falho(s)?`)) return
+    setDisparando(true)
+    setMsg('')
+    const res = await fetch(`/api/campanhas/${campanha.id}/reiniciar`, { method: 'POST' })
+    setDisparando(false)
+    if (!res.ok) {
+      const d = await res.json()
+      setMsg('Erro: ' + (d.error ?? 'desconhecido'))
+    } else {
+      const d = await res.json()
+      setMsg(`Reenvio iniciado — ${d.disparados} envios recriados. O n8n processará em background.`)
       router.refresh()
     }
   }
@@ -115,17 +135,39 @@ export function CampanhaDetail({ campanha, envios, counts }: Props) {
             <span className="text-xs text-[#525252]">Template: {campanha.templateNome}</span>
           </div>
         </div>
-        {canDispatch && (
-          <button
-            onClick={handleDisparar}
-            disabled={disparando}
-            className="bg-[#ccf381] hover:bg-[#b8e06a] text-black font-semibold rounded-xl px-5 py-2.5 text-sm transition-colors disabled:opacity-50 shrink-0"
-          >
-            {disparando ? 'Disparando...' : 'Disparar agora'}
-          </button>
-        )}
+        <div className="flex gap-2 shrink-0">
+          {canDispatch && (
+            <button
+              onClick={handleDisparar}
+              disabled={disparando}
+              className="bg-[#ccf381] hover:bg-[#b8e06a] text-black font-semibold rounded-xl px-5 py-2.5 text-sm transition-colors disabled:opacity-50"
+            >
+              {disparando ? 'Disparando...' : 'Disparar agora'}
+            </button>
+          )}
+          {canReiniciar && (
+            <button
+              onClick={handleReiniciar}
+              disabled={disparando}
+              className="bg-red-900/30 hover:bg-red-900/50 border border-red-800 text-red-400 font-semibold rounded-xl px-5 py-2.5 text-sm transition-colors disabled:opacity-50"
+            >
+              {disparando ? 'Reiniciando...' : 'Reiniciar envio'}
+            </button>
+          )}
+        </div>
       </div>
       {msg && <p className="text-xs text-[#ccf381] bg-[#ccf381]/10 rounded-xl px-4 py-3">{msg}</p>}
+      {counts.falhou > 0 && (
+        <div className="rounded-xl bg-red-950/30 border border-red-900/50 px-4 py-3 space-y-1">
+          <p className="text-xs font-semibold text-red-400">{counts.falhou} envio(s) falharam</p>
+          {envios.filter(e => e.erro).slice(0, 3).map(e => (
+            <p key={e.id} className="text-xs text-red-400/70 font-mono">{e.sigla}: {e.erro}</p>
+          ))}
+          {counts.falhou > 3 && (
+            <p className="text-xs text-red-400/50">… e mais {counts.falhou - 3}. Use o filtro &quot;Falhou&quot; para ver todos.</p>
+          )}
+        </div>
+      )}
 
       {/* Envio de teste */}
       <div className="rounded-[20px] bg-[#0a0a0a] border border-[#262626] p-5 space-y-3">
