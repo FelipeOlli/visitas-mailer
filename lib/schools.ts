@@ -11,7 +11,15 @@ export interface School {
   lng?: number | null
 }
 
-export const schools = schoolsData as School[]
+export function creFromSigla(sigla: string): string {
+  const m = /CRE\((\d+)\./.exec(sigla)
+  return m ? `${parseInt(m[1], 10)}ª CRE` : ''
+}
+
+export const schools: School[] = (schoolsData as Omit<School, 'cre'>[]).map(s => ({
+  ...s,
+  cre: creFromSigla(s.sigla),
+}))
 
 export function filterSchools(filtros: {
   cres?: string[]
@@ -32,7 +40,8 @@ export function filterSchools(filtros: {
 }
 
 export function getCres(): string[] {
-  return Array.from(new Set(schools.map(s => s.cre).filter(Boolean))).sort()
+  return Array.from(new Set(schools.map(s => s.cre).filter(Boolean)))
+    .sort((a, b) => parseInt(a) - parseInt(b))
 }
 
 export function getCresCounts(): Record<string, number> {
