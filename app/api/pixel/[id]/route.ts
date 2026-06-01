@@ -11,10 +11,11 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   const { id } = params
 
   try {
-    const envio = await prisma.envio.findUnique({ where: { id } })
+    const cleanId = id.replace(/\.gif$/i, '')
+    const envio = await prisma.envio.findUnique({ where: { id: cleanId } })
     if (envio && !envio.abertoEm) {
       await prisma.envio.update({
-        where: { id },
+        where: { id: cleanId },
         data: { abertoEm: new Date(), status: 'abriu' },
       })
     }

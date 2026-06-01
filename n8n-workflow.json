@@ -1,0 +1,135 @@
+{
+  "name": "Visitas Mailer — Disparar Campanha",
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "nodes": [
+    {
+      "id": "a1b2c3d4-0001-0001-0001-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "disparar-campanha",
+        "responseMode": "onReceived",
+        "responseData": "allEntries",
+        "options": {}
+      },
+      "webhookId": "a1b2c3d4-0001-0001-0001-000000000099"
+    },
+    {
+      "id": "a1b2c3d4-0001-0001-0001-000000000002",
+      "name": "Preparar Envios",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const raw = $input.first().json;\nconst body = raw.body ?? raw;\nconst { template, envios, schools, pixelBase, varsPorEnvio = {} } = body;\nconst appUrl = pixelBase.replace('/api/pixel', '');\n\nreturn envios.map(envio => {\n  const manual = varsPorEnvio[envio.id] ?? null;\n  const fromSchool = schools[envio.sigla] ?? null;\n  const escola = manual\n    ? { nome: manual.nome ?? '', cre: manual.cre ?? '', bairro: manual.bairro ?? '', endereco: manual.endereco ?? '' }\n    : (fromSchool ?? { nome: '', cre: '', bairro: '', endereco: '' });\n  return {\n    json: {\n      envioId: envio.id,\n      email: envio.email,\n      sigla: envio.sigla,\n      assunto: template.assunto,\n      html: template.html,\n      pixelBase,\n      appUrl,\n      escola,\n      varsExtra: manual ?? {}\n    }\n  };\n});"
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-0001-0001-000000000003",
+      "name": "Loop Envios",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [680, 300],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-0001-0001-000000000004",
+      "name": "Substituir Variáveis",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const item = $input.item.json;\nlet html = item.html;\n\n// Substituir todas as variáveis {{x}} — prioriza varsExtra (modo manual), depois escola\nconst vars = {\n  nome: item.escola.nome,\n  cre: item.escola.cre,\n  bairro: item.escola.bairro,\n  sigla: item.sigla,\n  endereco: item.escola.endereco,\n  ...(item.varsExtra ?? {})\n};\nhtml = html.replace(/\\{\\{(\\w+)\\}\\}/g, (_, k) => vars[k] ?? '');\n\n// Pixel de abertura\nconst pixel = `<img src=\"${item.pixelBase}/${item.envioId}.gif\" width=\"1\" height=\"1\" alt=\"\" style=\"display:none\" />`;\nhtml = html.includes('</body>') ? html.replace('</body>', pixel + '</body>') : html + pixel;\n\n// Anti-dark-mode: injetar meta color-scheme\nconst metaTag = '<meta name=\"color-scheme\" content=\"light only\"><meta name=\"supported-color-schemes\" content=\"light\"><style>:root{color-scheme:light only;supported-color-schemes:light;}</style>';\nif (!/<html[\\s>]/i.test(html)) {\n  html = `<!DOCTYPE html><html><head><meta charset=\"utf-8\">${metaTag}</head><body>${html}</body></html>`;\n} else if (!/<meta[^>]+name=[\"']color-scheme/i.test(html)) {\n  html = html.replace(/<head[^>]*>/i, m => m + metaTag);\n}\n\nreturn { json: { ...item, htmlFinal: html } };"
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-0001-0001-000000000005",
+      "name": "Enviar Gmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [1120, 300],
+      "parameters": {
+        "operation": "send",
+        "sendTo": "={{ $json.email }}",
+        "subject": "={{ $json.assunto }}",
+        "emailType": "html",
+        "message": "={{ $json.htmlFinal }}",
+        "options": {
+          "replyTo": "felipe.oliveira@sitecnologia.tec.br",
+          "senderName": "Felipe Oliveira — SMEL"
+        }
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "SUBSTITUIR_PELO_ID_DA_CREDENCIAL",
+          "name": "Gmail OAuth2 — Felipe"
+        }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-0001-0001-000000000006",
+      "name": "Marcar Enviado",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1340, 300],
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $json.appUrl }}/api/envios/{{ $json.envioId }}",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "status", "value": "enviado" }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-0001-0001-000000000007",
+      "name": "Aguardar 18s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [1560, 300],
+      "parameters": {
+        "unit": "seconds",
+        "amount": 18
+      },
+      "webhookId": "a1b2c3d4-0001-0001-0001-000000000098"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Preparar Envios", "type": "main", "index": 0 }]]
+    },
+    "Preparar Envios": {
+      "main": [[{ "node": "Loop Envios", "type": "main", "index": 0 }]]
+    },
+    "Loop Envios": {
+      "main": [
+        [{ "node": "Substituir Variáveis", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Substituir Variáveis": {
+      "main": [[{ "node": "Enviar Gmail", "type": "main", "index": 0 }]]
+    },
+    "Enviar Gmail": {
+      "main": [[{ "node": "Marcar Enviado", "type": "main", "index": 0 }]]
+    },
+    "Marcar Enviado": {
+      "main": [[{ "node": "Aguardar 18s", "type": "main", "index": 0 }]]
+    },
+    "Aguardar 18s": {
+      "main": [[{ "node": "Loop Envios", "type": "main", "index": 0 }]]
+    }
+  }
+}

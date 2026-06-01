@@ -66,3 +66,9 @@ Para cada envio:
 - Projeto criado do zero: Next.js 14 + Prisma 5 + next-auth v5
 - Implementados: CRUD templates, criação de campanhas com filtros, tracking de abertura pixel, disparo via n8n webhook
 - Build limpo, todas as rotas dinâmicas
+
+### 2026-06-01
+- Modo "lista manual" no formulário de campanha: toggle escolas/manual, textarea de e-mails, detecção automática de variáveis do template com badge de faltante por contato
+- Novo `lib/templateVars.ts` com `extractTemplateVars`; GET adicionado em `/api/templates/[id]`
+- Schema: `Campanha.tipoDestinatario` + `Envio.vars Json?`; migração `20260601000000_campanha_destinatario_manual`
+- Payload n8n agora inclui `varsPorEnvio` — workflow precisa ser ajustado manualmente para usar esse campo
