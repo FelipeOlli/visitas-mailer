@@ -28,7 +28,7 @@ model Template {
 
 model Campanha {
   id                 String   @id @default(cuid())
-  nome               String
+  nome               String   @unique
   templateId         String
   template           Template @relation(fields: [templateId], references: [id])
   filtros            Json

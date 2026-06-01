@@ -94,6 +94,21 @@ export function CampanhaDetail({ campanha, envios, counts }: Props) {
   const canReiniciar =
     (campanha.status === 'enviando' || campanha.status === 'concluida') &&
     (counts.pendente > 0 || counts.falhou > 0)
+  const canDelete = campanha.status !== 'enviando'
+
+  async function handleExcluir() {
+    if (!confirm(`Excluir a campanha "${campanha.nome}" e todos os seus envios? Essa ação não pode ser desfeita.`)) return
+    setDisparando(true)
+    const res = await fetch(`/api/campanhas/${campanha.id}`, { method: 'DELETE' })
+    setDisparando(false)
+    if (!res.ok) {
+      const d = await res.json()
+      setMsg('Erro: ' + (d.error ?? 'desconhecido'))
+    } else {
+      router.push('/campanhas')
+      router.refresh()
+    }
+  }
 
   async function handleDisparar() {
     if (!confirm(`Disparar para ${campanha.totalAlvo} escolas?`)) return
@@ -179,6 +194,14 @@ export function CampanhaDetail({ campanha, envios, counts }: Props) {
               {disparando ? 'Reiniciando...' : 'Reiniciar envio'}
             </button>
           )}
+          <button
+            onClick={handleExcluir}
+            disabled={disparando || !canDelete}
+            title={!canDelete ? 'Não é possível excluir durante o envio' : 'Excluir campanha'}
+            className="bg-transparent hover:bg-red-950/40 border border-[#262626] hover:border-red-900 text-[#737373] hover:text-red-400 font-semibold rounded-xl px-3 py-2.5 text-sm transition-colors disabled:opacity-30"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          </button>
         </div>
       </div>
       {msg && <p className="text-xs text-[#ccf381] bg-[#ccf381]/10 rounded-xl px-4 py-3">{msg}</p>}

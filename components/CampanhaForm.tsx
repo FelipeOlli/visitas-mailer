@@ -155,7 +155,11 @@ export function CampanhaForm({ templates }: Props) {
         }),
       })
       setLoading(false)
-      if (!res.ok) { setError('Erro ao salvar.'); return }
+      if (!res.ok) {
+        const d = await res.json()
+        setError(d.error ?? 'Erro ao salvar.')
+        return
+      }
       const data = await res.json()
       router.push(`/campanhas/${data.id}`)
       router.refresh()
@@ -178,7 +182,11 @@ export function CampanhaForm({ templates }: Props) {
       }),
     })
     setLoading(false)
-    if (!res.ok) { setError('Erro ao salvar.'); return }
+    if (!res.ok) {
+      const d = await res.json()
+      setError(d.error ?? 'Erro ao salvar.')
+      return
+    }
     const data = await res.json()
     router.push(`/campanhas/${data.id}`)
     router.refresh()
