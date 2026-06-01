@@ -18,6 +18,13 @@ export default async function CampanhasPage() {
   })
   const aberturasMap = Object.fromEntries(aberturasCounts.map(a => [a.campanhaId, a._count.id]))
 
+  const enviadosCounts = await prisma.envio.groupBy({
+    by: ['campanhaId'],
+    where: { status: { in: ['enviado', 'abriu'] } },
+    _count: { id: true },
+  })
+  const enviadosMap = Object.fromEntries(enviadosCounts.map(e => [e.campanhaId, e._count.id]))
+
   return (
     <div className="p-4 lg:p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -48,6 +55,7 @@ export default async function CampanhasPage() {
                 <th className="text-left text-xs text-[#525252] font-medium uppercase tracking-widest px-5 py-3">Campanha</th>
                 <th className="text-left text-xs text-[#525252] font-medium uppercase tracking-widest px-5 py-3 hidden sm:table-cell">Template</th>
                 <th className="text-right text-xs text-[#525252] font-medium uppercase tracking-widest px-5 py-3">Alvo</th>
+                <th className="text-right text-xs text-[#525252] font-medium uppercase tracking-widest px-5 py-3 hidden md:table-cell">Enviados</th>
                 <th className="text-right text-xs text-[#525252] font-medium uppercase tracking-widest px-5 py-3 hidden md:table-cell">Aberturas</th>
                 <th className="text-right text-xs text-[#525252] font-medium uppercase tracking-widest px-5 py-3">Status</th>
                 <th className="w-8" />
@@ -56,6 +64,7 @@ export default async function CampanhasPage() {
             <tbody>
               {campanhas.map(c => {
                 const aberturas = aberturasMap[c.id] ?? 0
+                const enviados = enviadosMap[c.id] ?? 0
                 const pct = c.totalAlvo > 0 ? Math.round((aberturas / c.totalAlvo) * 100) : 0
                 return (
                   <CampanhaRow
@@ -65,6 +74,7 @@ export default async function CampanhasPage() {
                     status={c.status}
                     templateNome={c.template.nome}
                     totalAlvo={c.totalAlvo}
+                    enviados={enviados}
                     aberturas={aberturas}
                     pct={pct}
                     createdAt={c.createdAt.toISOString()}

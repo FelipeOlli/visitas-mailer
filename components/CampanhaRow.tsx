@@ -23,12 +23,13 @@ interface Props {
   status: string
   templateNome: string
   totalAlvo: number
+  enviados: number
   aberturas: number
   pct: number
   createdAt: string
 }
 
-export function CampanhaRow({ id, nome, status, templateNome, totalAlvo, aberturas, pct, createdAt }: Props) {
+export function CampanhaRow({ id, nome, status, templateNome, totalAlvo, enviados, aberturas, pct, createdAt }: Props) {
   const router = useRouter()
 
   async function handleExcluir(e: React.MouseEvent) {
@@ -56,6 +57,9 @@ export function CampanhaRow({ id, nome, status, templateNome, totalAlvo, abertur
       </td>
       <td className="px-5 py-4 text-right">
         <span className="text-sm text-[#fafafa]">{totalAlvo}</span>
+      </td>
+      <td className="px-5 py-4 text-right hidden md:table-cell">
+        <span className="text-sm text-[#fafafa]">{enviados}</span>
       </td>
       <td className="px-5 py-4 text-right hidden md:table-cell">
         <span className="text-sm text-[#fafafa]">{aberturas}</span>
