@@ -42,4 +42,4 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-CMD sh -c "node ./node_modules/prisma/build/index.js migrate deploy && node server.js"
+CMD sh -c "node ./node_modules/prisma/build/index.js migrate resolve --rolled-back 20260601120000_campanha_nome_unique 2>/dev/null; node ./node_modules/prisma/build/index.js migrate deploy && node server.js"
