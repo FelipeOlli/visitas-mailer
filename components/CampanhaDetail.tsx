@@ -20,6 +20,7 @@ interface CampanhaProps {
   templateNome: string
   intervaloSegundos: number
   filtros: Record<string, string[]>
+  tipoDestinatario: string
   createdAt: string
 }
 
@@ -147,10 +148,15 @@ export function CampanhaDetail({ campanha, envios, counts }: Props) {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-bold">{campanha.nome}</h1>
-          <div className="flex items-center gap-3 mt-1">
+          <div className="flex items-center gap-3 mt-1 flex-wrap">
             <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_COLOR[campanha.status] ?? STATUS_COLOR.rascunho}`}>
               {campanha.status.charAt(0).toUpperCase() + campanha.status.slice(1)}
             </span>
+            {campanha.tipoDestinatario === 'manual' && (
+              <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-medium text-purple-400 bg-purple-900/20">
+                Lista manual
+              </span>
+            )}
             <span className="text-xs text-[#525252]">Template: {campanha.templateNome}</span>
           </div>
         </div>

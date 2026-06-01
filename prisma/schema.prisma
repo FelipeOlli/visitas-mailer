@@ -27,16 +27,17 @@ model Template {
 }
 
 model Campanha {
-  id         String   @id @default(cuid())
-  nome       String
-  templateId String
-  template   Template @relation(fields: [templateId], references: [id])
+  id                 String   @id @default(cuid())
+  nome               String
+  templateId         String
+  template           Template @relation(fields: [templateId], references: [id])
   filtros            Json
   totalAlvo          Int      @default(0)
   status             String   @default("rascunho")
   intervaloSegundos  Int      @default(20)
-  createdAt  DateTime @default(now())
-  envios     Envio[]
+  tipoDestinatario   String   @default("escolas")
+  createdAt          DateTime @default(now())
+  envios             Envio[]
 
   @@index([status])
 }
@@ -51,6 +52,7 @@ model Envio {
   enviadoEm  DateTime?
   abertoEm   DateTime?
   erro       String?
+  vars       Json?
 
   @@index([campanhaId, status])
   @@index([sigla])

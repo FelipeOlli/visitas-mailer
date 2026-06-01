@@ -30,6 +30,7 @@ export default async function CampanhaDetailPage({ params }: { params: { id: str
         totalAlvo: campanha.totalAlvo,
         templateNome: campanha.template.nome,
         filtros: campanha.filtros as Record<string, string[]>,
+        tipoDestinatario: campanha.tipoDestinatario,
         createdAt: campanha.createdAt.toISOString(),
         intervaloSegundos: campanha.intervaloSegundos,
       }}

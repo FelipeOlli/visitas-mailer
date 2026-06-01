@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { extractTemplateVars } from '@/lib/templateVars'
 
 function formatDuration(sec: number): string {
   const h = Math.floor(sec / 3600)
@@ -17,20 +18,41 @@ interface Props { templates: Template[] }
 
 const STATUS_VISITA = ['pendente', 'visitado', 'tentativa', 'reagendado']
 
+type Destinatario = { email: string; vars: Record<string, string> }
+
+function parseEmails(raw: string): string[] {
+  return raw
+    .split(/[\n,;]+/)
+    .map(s => s.trim())
+    .filter(s => s.includes('@'))
+}
+
+function isValidEmail(e: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)
+}
+
 export function CampanhaForm({ templates }: Props) {
   const router = useRouter()
+  const [modo, setModo] = useState<'escolas' | 'manual'>('escolas')
   const [nome, setNome] = useState('')
   const [templateId, setTemplateId] = useState(templates[0]?.id ?? '')
+  const [intervaloSegundos, setIntervaloSegundos] = useState(20)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  // Modo escolas
   const [cresAll, setCresAll] = useState<string[]>([])
   const [cresCounts, setCresCounts] = useState<Record<string, number>>({})
   const [bairrosAll, setBairrosAll] = useState<string[]>([])
-  const [intervaloSegundos, setIntervaloSegundos] = useState(20)
   const [selectedCres, setSelectedCres] = useState<string[]>([])
   const [selectedBairros, setSelectedBairros] = useState<string[]>([])
   const [selectedStatus, setSelectedStatus] = useState<string[]>([])
   const [totalAlvo, setTotalAlvo] = useState<number | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+
+  // Modo manual
+  const [emailsRaw, setEmailsRaw] = useState('')
+  const [templateVars, setTemplateVars] = useState<string[]>([])
+  const [destinatarios, setDestinatarios] = useState<Destinatario[]>([])
 
   useEffect(() => {
     fetch('/api/escolas-filtradas')
@@ -50,6 +72,27 @@ export function CampanhaForm({ templates }: Props) {
         setError(`Falha ao carregar filtros: ${err.message}. Recarregue a página ou faça login novamente.`)
       })
   }, [])
+
+  // Buscar variáveis do template selecionado no modo manual
+  useEffect(() => {
+    if (modo !== 'manual' || !templateId) return
+    fetch(`/api/templates/${templateId}`)
+      .then(r => r.json())
+      .then(t => setTemplateVars(extractTemplateVars(t.assunto ?? '', t.html ?? '')))
+      .catch(() => setTemplateVars([]))
+  }, [modo, templateId])
+
+  // Sincronizar destinatarios quando emails mudam
+  useEffect(() => {
+    if (modo !== 'manual') return
+    const emails = parseEmails(emailsRaw)
+    setDestinatarios(prev => {
+      return emails.map(email => {
+        const existing = prev.find(d => d.email === email)
+        return existing ?? { email, vars: {} }
+      })
+    })
+  }, [emailsRaw, modo])
 
   const fetchCount = useCallback(async (cres: string[], bairros: string[], status: string[]) => {
     const params = new URLSearchParams()
@@ -83,10 +126,42 @@ export function CampanhaForm({ templates }: Props) {
     fetchCount(selectedCres, selectedBairros, next)
   }
 
+  function setVar(email: string, key: string, value: string) {
+    setDestinatarios(prev =>
+      prev.map(d => d.email === email ? { ...d, vars: { ...d.vars, [key]: value } } : d)
+    )
+  }
+
   async function handleSave() {
     if (!nome || !templateId) { setError('Preencha nome e template.'); return }
     setLoading(true)
     setError('')
+
+    if (modo === 'manual') {
+      const emails = parseEmails(emailsRaw)
+      if (!emails.length) { setError('Informe ao menos um e-mail.'); setLoading(false); return }
+      const invalidos = emails.filter(e => !isValidEmail(e))
+      if (invalidos.length) { setError(`E-mails inválidos: ${invalidos.join(', ')}`); setLoading(false); return }
+
+      const res = await fetch('/api/campanhas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nome,
+          templateId,
+          tipoDestinatario: 'manual',
+          destinatarios: destinatarios.map(d => ({ email: d.email, vars: d.vars })),
+          intervaloSegundos,
+        }),
+      })
+      setLoading(false)
+      if (!res.ok) { setError('Erro ao salvar.'); return }
+      const data = await res.json()
+      router.push(`/campanhas/${data.id}`)
+      router.refresh()
+      return
+    }
+
     const res = await fetch('/api/campanhas', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -108,6 +183,9 @@ export function CampanhaForm({ templates }: Props) {
     router.push(`/campanhas/${data.id}`)
     router.refresh()
   }
+
+  const emailsParsed = parseEmails(emailsRaw)
+  const emailsInvalidos = emailsParsed.filter(e => !isValidEmail(e))
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -150,94 +228,203 @@ export function CampanhaForm({ templates }: Props) {
             </div>
             <p className="text-xs text-[#525252]">
               Estimativa: ~{Math.round(3600 / intervaloSegundos)} e-mails/hora
-              {totalAlvo ? ` · ${formatDuration(totalAlvo * intervaloSegundos)} para ${totalAlvo} escolas` : ''}
+              {modo === 'escolas' && totalAlvo ? ` · ${formatDuration(totalAlvo * intervaloSegundos)} para ${totalAlvo} escolas` : ''}
+              {modo === 'manual' && emailsParsed.length > 0 ? ` · ${formatDuration(emailsParsed.length * intervaloSegundos)} para ${emailsParsed.length} contato${emailsParsed.length !== 1 ? 's' : ''}` : ''}
             </p>
           </div>
         </div>
 
-        {/* Filtro CRE */}
-        <div className="rounded-[20px] bg-[#0a0a0a] border border-[#262626] p-5">
-          <p className="text-xs text-[#737373] uppercase tracking-widest mb-3">
-            Filtrar por CRE {selectedCres.length > 0 && <span className="text-[#ccf381]">· {selectedCres.length} selecionada{selectedCres.length !== 1 ? 's' : ''}</span>}
-          </p>
-          <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
-            {cresAll.map(cre => (
+        {/* Toggle de modo */}
+        <div className="rounded-[20px] bg-[#0a0a0a] border border-[#262626] p-5 space-y-3">
+          <p className="text-xs text-[#737373] uppercase tracking-widest mb-3">Destinatários</p>
+          <div className="flex gap-2">
+            {(['escolas', 'manual'] as const).map(m => (
               <button
-                key={cre}
-                onClick={() => handleCre(cre)}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
-                  selectedCres.includes(cre)
+                key={m}
+                onClick={() => setModo(m)}
+                className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+                  modo === m
                     ? 'bg-[#ccf381] text-black'
                     : 'bg-[#121212] text-[#737373] border border-[#262626] hover:border-[#404040] hover:text-[#fafafa]'
                 }`}
               >
-                {cre}
-                {cresCounts[cre] != null && (
-                  <span className={`ml-1.5 ${selectedCres.includes(cre) ? 'text-black/60' : 'text-[#404040]'}`}>
-                    {cresCounts[cre]}
-                  </span>
-                )}
+                {m === 'escolas' ? 'Escolas (filtros)' : 'Lista manual'}
               </button>
             ))}
           </div>
-          <p className="text-xs text-[#404040] mt-2">Deixe em branco para incluir todas as CREs</p>
         </div>
 
-        {/* Filtro Status visita */}
-        <div className="rounded-[20px] bg-[#0a0a0a] border border-[#262626] p-5">
-          <p className="text-xs text-[#737373] uppercase tracking-widest mb-3">
-            Filtrar por status de visita {selectedStatus.length > 0 && <span className="text-[#ccf381]">· {selectedStatus.length} selecionado{selectedStatus.length !== 1 ? 's' : ''}</span>}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {STATUS_VISITA.map(s => (
-              <button
-                key={s}
-                onClick={() => handleStatus(s)}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
-                  selectedStatus.includes(s)
-                    ? 'bg-[#ccf381] text-black'
-                    : 'bg-[#121212] text-[#737373] border border-[#262626] hover:border-[#404040] hover:text-[#fafafa]'
-                }`}
-              >
-                {s.charAt(0).toUpperCase() + s.slice(1)}
-              </button>
-            ))}
-          </div>
-          <p className="text-xs text-[#404040] mt-2">Deixe em branco para ignorar o status</p>
-        </div>
+        {modo === 'escolas' && (
+          <>
+            {/* Filtro CRE */}
+            <div className="rounded-[20px] bg-[#0a0a0a] border border-[#262626] p-5">
+              <p className="text-xs text-[#737373] uppercase tracking-widest mb-3">
+                Filtrar por CRE {selectedCres.length > 0 && <span className="text-[#ccf381]">· {selectedCres.length} selecionada{selectedCres.length !== 1 ? 's' : ''}</span>}
+              </p>
+              <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
+                {cresAll.map(cre => (
+                  <button
+                    key={cre}
+                    onClick={() => handleCre(cre)}
+                    className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                      selectedCres.includes(cre)
+                        ? 'bg-[#ccf381] text-black'
+                        : 'bg-[#121212] text-[#737373] border border-[#262626] hover:border-[#404040] hover:text-[#fafafa]'
+                    }`}
+                  >
+                    {cre}
+                    {cresCounts[cre] != null && (
+                      <span className={`ml-1.5 ${selectedCres.includes(cre) ? 'text-black/60' : 'text-[#404040]'}`}>
+                        {cresCounts[cre]}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-[#404040] mt-2">Deixe em branco para incluir todas as CREs</p>
+            </div>
 
-        {/* Filtro Bairro */}
-        <div className="rounded-[20px] bg-[#0a0a0a] border border-[#262626] p-5">
-          <p className="text-xs text-[#737373] uppercase tracking-widest mb-3">
-            Filtrar por bairro {selectedBairros.length > 0 && <span className="text-[#ccf381]">· {selectedBairros.length} selecionado{selectedBairros.length !== 1 ? 's' : ''}</span>}
-          </p>
-          <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
-            {bairrosAll.map(b => (
-              <button
-                key={b}
-                onClick={() => handleBairro(b)}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
-                  selectedBairros.includes(b)
-                    ? 'bg-[#ccf381] text-black'
-                    : 'bg-[#121212] text-[#737373] border border-[#262626] hover:border-[#404040] hover:text-[#fafafa]'
-                }`}
-              >
-                {b}
-              </button>
-            ))}
+            {/* Filtro Status visita */}
+            <div className="rounded-[20px] bg-[#0a0a0a] border border-[#262626] p-5">
+              <p className="text-xs text-[#737373] uppercase tracking-widest mb-3">
+                Filtrar por status de visita {selectedStatus.length > 0 && <span className="text-[#ccf381]">· {selectedStatus.length} selecionado{selectedStatus.length !== 1 ? 's' : ''}</span>}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {STATUS_VISITA.map(s => (
+                  <button
+                    key={s}
+                    onClick={() => handleStatus(s)}
+                    className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                      selectedStatus.includes(s)
+                        ? 'bg-[#ccf381] text-black'
+                        : 'bg-[#121212] text-[#737373] border border-[#262626] hover:border-[#404040] hover:text-[#fafafa]'
+                    }`}
+                  >
+                    {s.charAt(0).toUpperCase() + s.slice(1)}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-[#404040] mt-2">Deixe em branco para ignorar o status</p>
+            </div>
+
+            {/* Filtro Bairro */}
+            <div className="rounded-[20px] bg-[#0a0a0a] border border-[#262626] p-5">
+              <p className="text-xs text-[#737373] uppercase tracking-widest mb-3">
+                Filtrar por bairro {selectedBairros.length > 0 && <span className="text-[#ccf381]">· {selectedBairros.length} selecionado{selectedBairros.length !== 1 ? 's' : ''}</span>}
+              </p>
+              <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
+                {bairrosAll.map(b => (
+                  <button
+                    key={b}
+                    onClick={() => handleBairro(b)}
+                    className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                      selectedBairros.includes(b)
+                        ? 'bg-[#ccf381] text-black'
+                        : 'bg-[#121212] text-[#737373] border border-[#262626] hover:border-[#404040] hover:text-[#fafafa]'
+                    }`}
+                  >
+                    {b}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-[#404040] mt-2">Deixe em branco para incluir todos os bairros</p>
+            </div>
+          </>
+        )}
+
+        {modo === 'manual' && (
+          <div className="rounded-[20px] bg-[#0a0a0a] border border-[#262626] p-5 space-y-4">
+            <p className="text-xs text-[#737373] uppercase tracking-widest">E-mails destinatários</p>
+            <textarea
+              value={emailsRaw}
+              onChange={e => setEmailsRaw(e.target.value)}
+              placeholder={'cole@email.com\noutro@email.com\noutro2@email.com'}
+              rows={5}
+              className="w-full bg-[#121212] border border-[#262626] focus:border-[#ccf381] rounded-xl px-4 py-2.5 text-sm text-[#fafafa] placeholder-[#525252] outline-none transition-colors font-mono resize-y"
+            />
+            <p className="text-xs text-[#404040]">Um por linha, ou separados por vírgula/ponto-e-vírgula.</p>
+
+            {emailsInvalidos.length > 0 && (
+              <p className="text-xs text-red-400">E-mails inválidos: {emailsInvalidos.join(', ')}</p>
+            )}
+
+            {destinatarios.length > 0 && templateVars.length > 0 && (
+              <div className="space-y-3 mt-2">
+                <p className="text-xs text-[#737373] uppercase tracking-widest">
+                  Variáveis do template
+                </p>
+                <p className="text-xs text-[#525252]">
+                  Variáveis detectadas: <span className="font-mono text-[#ccf381]">{templateVars.map(v => `{{${v}}}`).join(', ')}</span>
+                </p>
+                <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+                  {destinatarios.map(d => (
+                    <div key={d.email} className="rounded-xl border border-[#1a1a1a] bg-[#0d0d0d] p-3 space-y-2">
+                      <p className="text-xs font-mono text-[#737373]">{d.email}</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {templateVars.map(v => {
+                          const val = d.vars[v] ?? ''
+                          const vazio = val === ''
+                          return (
+                            <div key={v}>
+                              <div className="flex items-center gap-1 mb-1">
+                                <label className="text-xs text-[#525252] font-mono">{`{{${v}}}`}</label>
+                                {vazio && (
+                                  <span className="text-[10px] text-red-400 bg-red-950/40 rounded px-1.5">faltante</span>
+                                )}
+                              </div>
+                              <input
+                                value={val}
+                                onChange={e => setVar(d.email, v, e.target.value)}
+                                placeholder={v}
+                                className={`w-full bg-[#121212] border rounded-lg px-3 py-1.5 text-xs text-[#fafafa] placeholder-[#404040] outline-none transition-colors ${
+                                  vazio ? 'border-red-900/60 focus:border-red-500' : 'border-[#262626] focus:border-[#ccf381]'
+                                }`}
+                              />
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {destinatarios.length > 0 && templateVars.length === 0 && (
+              <p className="text-xs text-[#525252]">
+                {emailsParsed.length} contato{emailsParsed.length !== 1 ? 's' : ''} · template sem variáveis dinâmicas.
+              </p>
+            )}
           </div>
-          <p className="text-xs text-[#404040] mt-2">Deixe em branco para incluir todos os bairros</p>
-        </div>
+        )}
       </div>
 
       {/* Sidebar — resumo + ação */}
       <div className="space-y-4">
         <div className="rounded-[20px] bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-[#262626] p-6 text-center">
-          <p className="text-xs text-[#737373] uppercase tracking-widest mb-1">Escolas atingidas</p>
-          <p className="font-display text-6xl font-bold text-[#ccf381] tracking-tighter leading-none">
-            {totalAlvo ?? '—'}
-          </p>
-          <p className="text-xs text-[#525252] mt-2">com e-mail válido</p>
+          {modo === 'escolas' ? (
+            <>
+              <p className="text-xs text-[#737373] uppercase tracking-widest mb-1">Escolas atingidas</p>
+              <p className="font-display text-6xl font-bold text-[#ccf381] tracking-tighter leading-none">
+                {totalAlvo ?? '—'}
+              </p>
+              <p className="text-xs text-[#525252] mt-2">com e-mail válido</p>
+            </>
+          ) : (
+            <>
+              <p className="text-xs text-[#737373] uppercase tracking-widest mb-1">Destinatários</p>
+              <p className="font-display text-6xl font-bold text-[#ccf381] tracking-tighter leading-none">
+                {emailsParsed.length}
+              </p>
+              <p className="text-xs text-[#525252] mt-2">
+                {emailsParsed.length === 0
+                  ? 'cole os e-mails à esquerda'
+                  : emailsInvalidos.length > 0
+                    ? `${emailsInvalidos.length} inválido(s)`
+                    : 'e-mails válidos'}
+              </p>
+            </>
+          )}
         </div>
 
         {error && <p className="text-xs text-red-400 text-center">{error}</p>}
