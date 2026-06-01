@@ -351,7 +351,14 @@ export function CampanhaDetail({ campanha, envios, counts }: Props) {
                   </td>
                   <td className="px-5 py-3 text-right hidden lg:table-cell">
                     <span className="text-xs text-[#404040]">
-                      {e.abertoEm ? new Date(e.abertoEm).toLocaleDateString('pt-BR') : '—'}
+                      {e.abertoEm ? (
+                        <>
+                          {new Date(e.abertoEm).toLocaleDateString('pt-BR')}
+                          <span className="text-[#525252] ml-1">
+                            {new Date(e.abertoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </>
+                      ) : '—'}
                     </span>
                   </td>
                 </tr>
