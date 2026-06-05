@@ -90,6 +90,15 @@ export function CampanhaDetail({ campanha, envios, counts }: Props) {
   const pct = campanha.totalAlvo > 0 ? (processados / campanha.totalAlvo) * 100 : 0
   const restantes = campanha.totalAlvo - processados
   const pctAbertura = campanha.totalAlvo > 0 ? Math.round((counts.abriu / campanha.totalAlvo) * 100) : 0
+
+  const totalEntregue = counts.enviado + counts.abriu
+  const funilLinhas = [
+    { label: 'Total',      value: campanha.totalAlvo,             color: '#be123c' },
+    { label: 'Envio',      value: processados,                    color: '#d97706' },
+    { label: 'Entregue',   value: totalEntregue,                  color: '#1d4ed8' },
+    { label: 'Lido',       value: counts.abriu,                   color: '#7c3aed' },
+    { label: 'Interagido', value: 0,                              color: '#059669' },
+  ]
   const canDispatch = campanha.status === 'rascunho' || campanha.status === 'pausada'
   const canReiniciar =
     (campanha.status === 'enviando' || campanha.status === 'concluida') &&
@@ -288,6 +297,46 @@ export function CampanhaDetail({ campanha, envios, counts }: Props) {
           </div>
         ))}
       </div>
+
+      {/* Funil de conversão */}
+      {campanha.totalAlvo > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_220px] gap-4">
+          <div className="rounded-[20px] bg-[#0a0a0a] border border-[#262626] p-5 space-y-4">
+            <div>
+              <p className="text-sm font-semibold text-[#fafafa]">Funil de conversão</p>
+              <p className="text-xs text-[#525252]">Confira a efetividade desta campanha</p>
+            </div>
+            {funilLinhas.map(({ label, value, color }) => {
+              const p = campanha.totalAlvo > 0 ? Math.round((value / campanha.totalAlvo) * 100) : 0
+              return (
+                <div key={label} className="flex items-center gap-3">
+                  <span className="text-xs text-[#737373] w-20 shrink-0">{label}</span>
+                  <div className="flex-1 h-7 bg-[#1a1a1a] rounded-lg overflow-hidden relative">
+                    {p > 0 && (
+                      <div
+                        className="h-full rounded-lg transition-all duration-500"
+                        style={{ width: `${p}%`, backgroundColor: color, opacity: 0.85 }}
+                      />
+                    )}
+                    <span className="absolute inset-0 flex items-center px-2.5 text-xs font-semibold text-white/70">
+                      {p}%
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <div className="rounded-[20px] bg-[#0a0a0a] border border-[#262626] p-5 flex flex-col items-center justify-center gap-2 text-center">
+            <p className="font-display text-5xl font-bold text-blue-400">{pctAbertura}%</p>
+            <p className="text-sm font-semibold text-[#fafafa]">Engajamento</p>
+            <p className="text-xs text-[#525252]">
+              {pctAbertura === 0
+                ? 'Nenhuma escola abriu o e-mail'
+                : `${counts.abriu} escola${counts.abriu > 1 ? 's' : ''} abriu o e-mail`}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Filtro + exportar */}
       {envios.length > 0 && (

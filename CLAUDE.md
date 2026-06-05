@@ -54,6 +54,10 @@ Para cada envio:
 4. HTTP PATCH `/api/envios/{id}` com `{ status: "enviado", enviadoEm: now }`
 5. Wait 18s entre envios (~200/hora)
 
+## Destinatários
+- ~80% dos e-mails das escolas são domínios Microsoft (Outlook/Hotmail/Live/Microsoft 365)
+- Implicação: entregabilidade e renderização devem ser testadas prioritariamente no Outlook
+
 ## Anti-spam
 - SPF/DKIM/DMARC configurados no domínio Workspace antes do primeiro disparo
 - From = e-mail real do Felipe, Reply-To = mesmo From
@@ -70,5 +74,9 @@ Para cada envio:
 ### 2026-06-01
 - Modo "lista manual" no formulário de campanha: toggle escolas/manual, textarea de e-mails, detecção automática de variáveis do template com badge de faltante por contato
 - Novo `lib/templateVars.ts` com `extractTemplateVars`; GET adicionado em `/api/templates/[id]`
-- Schema: `Campanha.tipoDestinatario` + `Envio.vars Json?`; migração `20260601000000_campanha_destinatario_manual`
-- Payload n8n agora inclui `varsPorEnvio` — workflow precisa ser ajustado manualmente para usar esse campo
+- Schema: `Campanha.tipoDestinatario` + `Envio.vars Json?` + `Campanha.nome @unique`
+- Workflow n8n atualizado: lê `varsPorEnvio`, injeta meta `color-scheme` anti-dark-mode, strip `.gif` no pixel
+- Excluir campanha: DELETE `/api/campanhas/[id]` com cascade; botão na lista (hover) e no detalhe; bloqueado em `enviando`
+- Listagem de campanhas com coluna Enviados (status `enviado` + `abriu`)
+- Tracking por pixel no Gmail é impreciso: Google proxy busca imagens na entrega, não na abertura real — limitação conhecida, sem solução via pixel
+- Coluna "Aberto" na tabela de envios exibe data + hora (toLocaleTimeString HH:MM)
