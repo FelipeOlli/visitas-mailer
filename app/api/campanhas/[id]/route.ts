@@ -2,6 +2,26 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  const session = await auth()
+  if (!session) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+
+  const { nome } = await req.json()
+  if (!nome || typeof nome !== 'string' || !nome.trim()) {
+    return NextResponse.json({ error: 'Nome inválido' }, { status: 400 })
+  }
+
+  try {
+    const campanha = await prisma.campanha.update({
+      where: { id: params.id },
+      data: { nome: nome.trim() },
+    })
+    return NextResponse.json({ nome: campanha.nome })
+  } catch {
+    return NextResponse.json({ error: 'Já existe uma campanha com esse nome.' }, { status: 409 })
+  }
+}
+
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })

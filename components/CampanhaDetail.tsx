@@ -62,6 +62,31 @@ export function CampanhaDetail({ campanha, envios, counts }: Props) {
   const [emailTeste, setEmailTeste] = useState('')
   const [enviandoTeste, setEnviandoTeste] = useState(false)
   const [msgTeste, setMsgTeste] = useState('')
+  const [editandoNome, setEditandoNome] = useState(false)
+  const [nomeEdit, setNomeEdit] = useState(campanha.nome)
+  const [nomeSalvo, setNomeSalvo] = useState(campanha.nome)
+  const [salvandoNome, setSalvandoNome] = useState(false)
+
+  async function handleSalvarNome() {
+    if (!nomeEdit.trim() || nomeEdit.trim() === nomeSalvo) { setEditandoNome(false); return }
+    setSalvandoNome(true)
+    const res = await fetch(`/api/campanhas/${campanha.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nome: nomeEdit.trim() }),
+    })
+    setSalvandoNome(false)
+    if (!res.ok) {
+      const d = await res.json()
+      setMsg('Erro ao renomear: ' + (d.error ?? 'desconhecido'))
+      setNomeEdit(nomeSalvo)
+    } else {
+      const d = await res.json()
+      setNomeSalvo(d.nome)
+      router.refresh()
+    }
+    setEditandoNome(false)
+  }
 
   async function handleTestar() {
     setEnviandoTeste(true)
@@ -171,7 +196,43 @@ export function CampanhaDetail({ campanha, envios, counts }: Props) {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl font-bold">{campanha.nome}</h1>
+          <div className="flex items-center gap-2">
+            {editandoNome ? (
+              <>
+                <input
+                  autoFocus
+                  value={nomeEdit}
+                  onChange={e => setNomeEdit(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleSalvarNome(); if (e.key === 'Escape') { setNomeEdit(nomeSalvo); setEditandoNome(false) } }}
+                  className="font-display text-2xl font-bold bg-[#121212] border border-[#404040] rounded-lg px-2 py-0.5 text-[#fafafa] focus:outline-none focus:border-[#ccf381]"
+                />
+                <button
+                  onClick={handleSalvarNome}
+                  disabled={salvandoNome}
+                  className="text-[#ccf381] hover:text-white text-xs font-medium disabled:opacity-50"
+                >
+                  {salvandoNome ? 'Salvando...' : 'Salvar'}
+                </button>
+                <button
+                  onClick={() => { setNomeEdit(nomeSalvo); setEditandoNome(false) }}
+                  className="text-[#525252] hover:text-[#fafafa] text-xs font-medium"
+                >
+                  Cancelar
+                </button>
+              </>
+            ) : (
+              <>
+                <h1 className="font-display text-2xl font-bold">{nomeSalvo}</h1>
+                <button
+                  onClick={() => setEditandoNome(true)}
+                  title="Renomear campanha"
+                  className="text-[#404040] hover:text-[#737373] transition-colors mt-0.5"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+              </>
+            )}
+          </div>
           <div className="flex items-center gap-3 mt-1 flex-wrap">
             <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_COLOR[campanha.status] ?? STATUS_COLOR.rascunho}`}>
               {campanha.status.charAt(0).toUpperCase() + campanha.status.slice(1)}
